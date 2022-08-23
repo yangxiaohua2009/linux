@@ -717,6 +717,38 @@ static int es8316_set_jack(struct snd_soc_component *component,
 	return 0;
 }
 
+static int es8316_resume(struct snd_soc_component *component){
+        /* The dapm fails and needs a hardcode write */
+        printk("es8316 resume");
+	snd_soc_component_write(component, 0x00, 0x80);
+	snd_soc_component_write(component, 0x01, 0x7f);
+	snd_soc_component_write(component, 0x0a, 0x00);
+	snd_soc_component_write(component, 0x0d, 0x00);
+	snd_soc_component_write(component, 0x14, 0x88);
+	snd_soc_component_write(component, 0x15, 0x00);
+	snd_soc_component_write(component, 0x17, 0x66);
+	snd_soc_component_write(component, 0x18, 0x00);
+	snd_soc_component_write(component, 0x19, 0x02);
+	snd_soc_component_write(component, 0x1a, 0x02);
+	snd_soc_component_write(component, 0x1c, 0x00);
+        snd_soc_component_write(component, 0x22, 0x00);
+        snd_soc_component_write(component, 0x2e, 0x00);
+        snd_soc_component_write(component, 0x2f, 0x00);
+        snd_soc_component_write(component, 0x30, 0x00);
+        snd_soc_component_write(component, 0x31, 0x00);
+        snd_soc_component_write(component, 0x32, 0x00);
+	snd_soc_component_write(component, 0x33, 0x00);
+	snd_soc_component_write(component, 0x34, 0x00);
+	snd_soc_component_write(component, 0x03, 0x32);
+	snd_soc_component_write(component, 0x0c, 0xff);
+	snd_soc_component_write(component, 0x16, 0xbb);
+	snd_soc_component_write(component, 0x23, 0xa0);
+	snd_soc_component_write(component, 0x27, 0x00);
+	snd_soc_component_write(component, 0x4e, 0x02);
+
+        return 0;
+}
+
 static int es8316_probe(struct snd_soc_component *component)
 {
 	struct es8316_priv *es8316 = snd_soc_component_get_drvdata(component);
@@ -770,6 +802,7 @@ static void es8316_remove(struct snd_soc_component *component)
 static const struct snd_soc_component_driver soc_component_dev_es8316 = {
 	.probe			= es8316_probe,
 	.remove			= es8316_remove,
+	.resume			= es8316_resume,
 	.set_jack		= es8316_set_jack,
 	.controls		= es8316_snd_controls,
 	.num_controls		= ARRAY_SIZE(es8316_snd_controls),
