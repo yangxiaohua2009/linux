@@ -29,13 +29,14 @@ jobs:
 
       - name: Install sparse
         run: |
-          git clone --depth 1 --branch v0.6.2 git://git.kernel.org/pub/scm/devel/sparse/sparse.git
+          git clone git://git.kernel.org/pub/scm/devel/sparse/sparse.git
+          git -C sparse reset --hard ce1a6720
           BINDIR=$(pwd)/bin make -C sparse install
           echo "$(pwd)/bin" >> $GITHUB_PATH
 
       - name: build start
         run: |
-          export ARCH=x86_64 CF="-Wsparse-error -Wsparse-all -Wno-bitwise-pointer -Wno-pointer-arith -Wno-typesign -Wnoshadow"
+          export ARCH=x86_64 CF="-Wsparse-error -Wsparse-all -Wno-bitwise-pointer -Wno-pointer-arith -Wno-typesign -Wnoshadow -Wnoflexible-array-array -Wnoflexible-array-nested -Wnoflexible-array-sizeof -Wnoflexible-array-union -Wnotautological-compare"
           make allmodconfig
           make modules_prepare
           make -k sound/soc/sof/ C=2

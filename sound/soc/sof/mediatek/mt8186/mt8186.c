@@ -505,8 +505,8 @@ static struct snd_sof_dsp_ops sof_mt8186_ops = {
 	.block_write	= sof_block_write,
 
 	/* Mailbox IO */
-	.mailbox_read   = sof_mailbox_read,
-	.mailbox_write  = sof_mailbox_write,
+	.mailbox_read	= sof_mailbox_read,
+	.mailbox_write	= sof_mailbox_write,
 
 	/* Register IO */
 	.write		= sof_io_write,
@@ -524,12 +524,9 @@ static struct snd_sof_dsp_ops sof_mt8186_ops = {
 	/* misc */
 	.get_bar_index	= mt8186_get_bar_index,
 
-	/* machine driver */
-	.of_machine_select = sof_of_machine_select,
-
 	/* stream callbacks */
-	.pcm_open       = sof_stream_pcm_open,
-	.pcm_close      = sof_stream_pcm_close,
+	.pcm_open	= sof_stream_pcm_open,
+	.pcm_close	= sof_stream_pcm_close,
 
 	/* firmware loading */
 	.load_firmware	= snd_sof_load_firmware_memcpy,
@@ -538,8 +535,8 @@ static struct snd_sof_dsp_ops sof_mt8186_ops = {
 	.dsp_arch_ops = &sof_xtensa_arch_ops,
 
 	/* DAI drivers */
-	.drv = mt8186_dai,
-	.num_drv = ARRAY_SIZE(mt8186_dai),
+	.drv		= mt8186_dai,
+	.num_drv	= ARRAY_SIZE(mt8186_dai),
 
 	/* PM */
 	.suspend	= mt8186_dsp_suspend,
@@ -555,16 +552,8 @@ static struct snd_sof_dsp_ops sof_mt8186_ops = {
 
 static struct snd_sof_of_mach sof_mt8186_machs[] = {
 	{
-		.board = "google,kingler",
-		.sof_tplg_filename = "sof-mt8186-mt6366-da7219-max98357.tplg",
-	},
-	{
-		.board = "google,krabby",
-		.sof_tplg_filename = "sof-mt8186-mt6366-rt1019-rt5682s.tplg",
-	},
-	{
-		.board = "google,steelix",
-		.sof_tplg_filename = "sof-mt8186-mt6366-rt1019-rt5682s.tplg",
+		.compatible = "mediatek,mt8186",
+		.sof_tplg_filename = "sof-mt8186.tplg",
 	},
 	{}
 };
