@@ -544,9 +544,12 @@ cdns_fill_msg_resp(struct sdw_cdns *cdns,
 		return SDW_CMD_IGNORED;
 	}
 
-	/* fill response */
-	for (i = 0; i < count; i++)
-		msg->buf[i + offset] = FIELD_GET(CDNS_MCP_RESP_RDATA, cdns->response_buf[i]);
+	if (msg->flags == SDW_MSG_FLAG_READ) {
+		/* fill response */
+		for (i = 0; i < count; i++)
+			msg->buf[i + offset] = FIELD_GET(CDNS_MCP_RESP_RDATA,
+							 cdns->response_buf[i]);
+	}
 
 	return SDW_CMD_OK;
 }
@@ -566,7 +569,7 @@ _cdns_xfer_msg(struct sdw_cdns *cdns, struct sdw_msg *msg, int cmd,
 	}
 
 	base = CDNS_MCP_CMD_BASE;
-	addr = msg->addr;
+	addr = msg->addr + offset;
 
 	for (i = 0; i < count; i++) {
 		data = FIELD_PREP(CDNS_MCP_CMD_DEV_ADDR, msg->dev_num);
@@ -705,18 +708,15 @@ cdns_xfer_msg(struct sdw_bus *bus, struct sdw_msg *msg)
 	for (i = 0; i < msg->len / CDNS_MCP_CMD_LEN; i++) {
 		ret = _cdns_xfer_msg(cdns, msg, cmd, i * CDNS_MCP_CMD_LEN,
 				     CDNS_MCP_CMD_LEN, false);
-		if (ret < 0)
-			goto exit;
+		if (ret != SDW_CMD_OK)
+			return ret;
 	}
 
 	if (!(msg->len % CDNS_MCP_CMD_LEN))
-		goto exit;
+		return SDW_CMD_OK;
 
-	ret = _cdns_xfer_msg(cdns, msg, cmd, i * CDNS_MCP_CMD_LEN,
-			     msg->len % CDNS_MCP_CMD_LEN, false);
-
-exit:
-	return ret;
+	return _cdns_xfer_msg(cdns, msg, cmd, i * CDNS_MCP_CMD_LEN,
+			      msg->len % CDNS_MCP_CMD_LEN, false);
 }
 EXPORT_SYMBOL(cdns_xfer_msg);
 
