@@ -970,17 +970,10 @@ static const struct snd_soc_component_driver mca_component = {
 
 static void apple_mca_release(struct mca_data *mca)
 {
-	int i, stream;
+	int i;
 
 	for (i = 0; i < mca->nclusters; i++) {
 		struct mca_cluster *cl = &mca->clusters[i];
-
-		for_each_pcm_streams(stream) {
-			if (IS_ERR_OR_NULL(cl->dma_chans[stream]))
-				continue;
-
-			dma_release_channel(cl->dma_chans[stream]);
-		}
 
 		if (!IS_ERR_OR_NULL(cl->clk_parent))
 			clk_put(cl->clk_parent);
@@ -995,7 +988,7 @@ static void apple_mca_release(struct mca_data *mca)
 	if (!IS_ERR_OR_NULL(mca->pd_dev))
 		dev_pm_domain_detach(mca->pd_dev, true);
 
-	reset_control_assert(mca->rstc);
+	reset_control_rearm(mca->rstc);
 }
 
 static int apple_mca_probe(struct platform_device *pdev)
@@ -1049,12 +1042,12 @@ static int apple_mca_probe(struct platform_device *pdev)
 					       DL_FLAG_RPM_ACTIVE);
 	if (!mca->pd_link) {
 		ret = -EINVAL;
-		/* Prevent an unbalanced reset assert */
+		/* Prevent an unbalanced reset rearm */
 		mca->rstc = NULL;
 		goto err_release;
 	}
 
-	reset_control_deassert(mca->rstc);
+	reset_control_reset(mca->rstc);
 
 	for (i = 0; i < nclusters; i++) {
 		struct mca_cluster *cl = &clusters[i];
@@ -1136,8 +1129,8 @@ static int apple_mca_probe(struct platform_device *pdev)
 		}
 	}
 
-	ret = devm_snd_soc_register_component(&pdev->dev, &mca_component,
-					      dai_drivers, nclusters * 2);
+	ret = snd_soc_register_component(&pdev->dev, &mca_component,
+					 dai_drivers, nclusters * 2);
 	if (ret) {
 		dev_err(&pdev->dev, "unable to register ASoC component: %d\n",
 			ret);
@@ -1155,6 +1148,7 @@ static int apple_mca_remove(struct platform_device *pdev)
 {
 	struct mca_data *mca = platform_get_drvdata(pdev);
 
+	snd_soc_unregister_component(&pdev->dev);
 	apple_mca_release(mca);
 	return 0;
 }
