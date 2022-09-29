@@ -1949,7 +1949,7 @@ static int sof_ipc4_tear_down_all_pipelines(struct snd_sof_dev *sdev, bool verif
 	 * of the suspend and it sent a SNDRV_PCM_TRIGGER_STOP to the active
 	 * stream. This will call sof_pcm_stream_free() with
 	 * free_widget_list = false which will leave the kernel and firmware out
-	 * of sync durning suspend/resume.
+	 * of sync during suspend/resume.
 	 *
 	 * This will also make sure that paused streams handled correctly.
 	 */
