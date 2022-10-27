@@ -745,7 +745,7 @@ static inline bool hda_codec_check_rirb_status(struct snd_sof_dev *sdev) { retur
 static inline void hda_codec_set_codec_wakeup(struct snd_sof_dev *sdev, bool status) { }
 static inline void hda_codec_device_remove(struct snd_sof_dev *sdev) { }
 
-#endif /* CONFIG_SND_SOC_SOF_HDA_AUDO_CODEC */
+#endif /* CONFIG_SND_SOC_SOF_HDA_AUDIO_CODEC */
 
 #if IS_ENABLED(CONFIG_SND_SOC_SOF_HDA_AUDIO_CODEC) && IS_ENABLED(CONFIG_SND_HDA_CODEC_HDMI)
 

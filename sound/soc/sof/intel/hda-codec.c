@@ -113,12 +113,7 @@ EXPORT_SYMBOL_NS_GPL(hda_codec_jack_check, SND_SOC_SOF_HDA_AUDIO_CODEC);
 #define is_generic_config(x)	0
 #endif
 
-static void hda_codec_device_exit(struct device *dev)
-{
-	snd_hdac_device_exit(dev_to_hdac_dev(dev));
-}
-
-static struct hda_codec *hda_codec_device_init(struct hdac_bus *bus, int addr)
+static struct hda_codec *hda_codec_device_init(struct hdac_bus *bus, int addr, int type)
 {
 	struct hda_codec *codec;
 	int ret;
@@ -129,13 +124,12 @@ static struct hda_codec *hda_codec_device_init(struct hdac_bus *bus, int addr)
 		return codec;
 	}
 
-	codec->core.type = HDA_DEV_LEGACY;
-	codec->core.dev.release = hda_codec_device_exit;
+	codec->core.type = type;
 
 	ret = snd_hdac_device_register(&codec->core);
 	if (ret) {
 		dev_err(bus->dev, "failed to register hdac device\n");
-		snd_hdac_device_exit(&codec->core);
+		put_device(&codec->core.dev);
 		return ERR_PTR(ret);
 	}
 
@@ -169,7 +163,7 @@ static int hda_codec_probe(struct snd_sof_dev *sdev, int address)
 	if (!hda_priv)
 		return -ENOMEM;
 
-	codec = hda_codec_device_init(&hbus->core, address);
+	codec = hda_codec_device_init(&hbus->core, address, HDA_DEV_LEGACY);
 	ret = PTR_ERR_OR_ZERO(codec);
 	if (ret < 0)
 		return ret;
