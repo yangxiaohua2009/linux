@@ -356,7 +356,7 @@ int hda_dsp_cl_boot_firmware_iccmax(struct snd_sof_dev *sdev)
 	}
 
 	/* restore the original guardband value after FW boot */
-	snd_sof_dsp_updateb(sdev, HDA_DSP_HDA_BAR, HDA_VS_INTEL_LTRP,
+	snd_sof_dsp_update8(sdev, HDA_DSP_HDA_BAR, HDA_VS_INTEL_LTRP,
 			    HDA_VS_INTEL_LTRP_GB_MASK, original_gb);
 
 	return ret;
