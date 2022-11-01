@@ -396,7 +396,7 @@ static int hda_dsp_update_d0i3c_register(struct snd_sof_dev *sdev, u8 value)
 	}
 
 	/* Update D0I3C register */
-	snd_sof_dsp_updateb(sdev, HDA_DSP_HDA_BAR, chip->d0i3_offset,
+	snd_sof_dsp_update8(sdev, HDA_DSP_HDA_BAR, chip->d0i3_offset,
 			    SOF_HDA_VS_D0I3C_I3, value);
 
 	/* Wait for cmd in progress to be cleared before exiting the function */
