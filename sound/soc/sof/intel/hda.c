@@ -71,6 +71,11 @@ static u32 hda_get_interface_mask(struct snd_sof_dev *sdev)
 				    BIT(SOF_DAI_INTEL_HDA) | BIT(SOF_DAI_INTEL_ALH);
 		interface_mask[1] = BIT(SOF_DAI_INTEL_HDA);
 		break;
+	case SOF_INTEL_ACE_2_0:
+		interface_mask[0] = BIT(SOF_DAI_INTEL_SSP) | BIT(SOF_DAI_INTEL_DMIC) |
+				    BIT(SOF_DAI_INTEL_HDA) | BIT(SOF_DAI_INTEL_ALH);
+		interface_mask[1] = interface_mask[0]; /* all interfaces accessible without DSP */
+		break;
 	default:
 		break;
 	}
@@ -239,6 +244,31 @@ int hda_sdw_check_lcount_common(struct snd_sof_dev *sdev)
 		dev_err(sdev->dev,
 			"%s: BIOS master count %d is larger than hardware capabilities %d\n",
 			__func__, ctx->count, caps);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+int hda_sdw_check_lcount_ext(struct snd_sof_dev *sdev)
+{
+	struct sof_intel_hda_dev *hdev;
+	struct sdw_intel_ctx *ctx;
+	struct hdac_bus *bus;
+	u32 slcount;
+
+	bus = sof_to_bus(sdev);
+
+	hdev = sdev->pdata->hw_pdata;
+	ctx = hdev->sdw;
+
+	slcount = hdac_bus_eml_get_count(bus, true, AZX_REG_ML_LEPTR_ID_SDW);
+
+	/* Check HW supported vs property value */
+	if (slcount < ctx->count) {
+		dev_err(sdev->dev,
+			"%s: BIOS master count %d is larger than hardware capabilities %d\n",
+			__func__, ctx->count, slcount);
 		return -EINVAL;
 	}
 
