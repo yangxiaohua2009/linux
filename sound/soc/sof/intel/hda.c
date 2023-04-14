@@ -971,7 +971,7 @@ static int hda_init_caps(struct snd_sof_dev *sdev)
 		return ret;
 	}
 
-	hda_bus_ml_get_capabilities(bus);
+	hda_bus_ml_init(bus);
 
 	/* Skip SoundWire if it is not supported */
 	if (!(interface_mask & BIT(SOF_DAI_INTEL_ALH)))
@@ -1096,10 +1096,12 @@ int hda_dsp_probe(struct snd_sof_dev *sdev)
 			dev_err(sdev->dev, "the DSP is not enabled on this platform, aborting probe\n");
 			return -ENODEV;
 		} else if (pci->class != 0x040100 && pci->class != 0x040380) {
-			dev_err(sdev->dev, "unknown PCI class/subclass/prog-if 0x%06x found, aborting probe\n", pci->class);
+			dev_err(sdev->dev, "unknown PCI class/subclass/prog-if 0x%06x found, aborting probe\n",
+				pci->class);
 			return -ENODEV;
 		}
-		dev_info(sdev->dev, "DSP detected with PCI class/subclass/prog-if 0x%06x\n", pci->class);
+		dev_info(sdev->dev, "DSP detected with PCI class/subclass/prog-if 0x%06x\n",
+			 pci->class);
 	}
 
 	chip = get_chip_info(sdev->pdata);
