@@ -180,7 +180,7 @@ static int hdaml_lnk_enum(struct device *dev, struct hdac_ext2_link *h2link,
 #define HDAML_POLL_DELAY_SLACK_US 5
 #define HDAML_POLL_DELAY_RETRY  100
 
-static int check_power_active(u32 __iomem *lctl, int sublink, bool enable)
+static int check_sublink_power(u32 __iomem *lctl, int sublink, bool enabled)
 {
 	int mask = BIT(sublink) << AZX_ML_LCTL_CPA_SHIFT;
 	int retry = HDAML_POLL_DELAY_RETRY;
@@ -190,7 +190,7 @@ static int check_power_active(u32 __iomem *lctl, int sublink, bool enable)
 		     HDAML_POLL_DELAY_MIN_US + HDAML_POLL_DELAY_SLACK_US);
 	do {
 		val = readl(lctl);
-		if (enable) {
+		if (enabled) {
 			if (val & mask)
 				return 0;
 		} else {
@@ -215,7 +215,7 @@ static int hdaml_link_init(u32 __iomem *lctl, int sublink)
 
 	writel(val, lctl);
 
-	return check_power_active(lctl, sublink, true);
+	return check_sublink_power(lctl, sublink, true);
 }
 
 static int hdaml_link_shutdown(u32 __iomem *lctl, int sublink)
@@ -229,7 +229,7 @@ static int hdaml_link_shutdown(u32 __iomem *lctl, int sublink)
 
 	writel(val, lctl);
 
-	return check_power_active(lctl, sublink, false);
+	return check_sublink_power(lctl, sublink, false);
 }
 
 static void hdaml_link_enable_interrupt(u32 __iomem *lctl, bool enable)
@@ -384,7 +384,7 @@ static int hda_ml_alloc_h2link(struct hdac_bus *bus, int index)
 	return 0;
 }
 
-int hda_bus_ml_get_capabilities(struct hdac_bus *bus)
+int hda_bus_ml_init(struct hdac_bus *bus)
 {
 	u32 link_count;
 	int ret;
@@ -406,7 +406,7 @@ int hda_bus_ml_get_capabilities(struct hdac_bus *bus)
 	}
 	return 0;
 }
-EXPORT_SYMBOL_NS(hda_bus_ml_get_capabilities, SND_SOC_SOF_HDA_MLINK);
+EXPORT_SYMBOL_NS(hda_bus_ml_init, SND_SOC_SOF_HDA_MLINK);
 
 void hda_bus_ml_free(struct hdac_bus *bus)
 {
