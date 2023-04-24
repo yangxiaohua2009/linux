@@ -238,11 +238,17 @@ static int imx_audmix_probe(struct platform_device *pdev)
 					       dai_name, "CPU-Capture");
 		}
 
-		priv->dai[i].cpus = &dlc[0];
-		priv->dai[i].codecs = &dlc[1];
+		/*
+		 * CPU == Platform
+		 * platform is using soc-generic-dmaengine-pcm
+		 */
+		priv->dai[i].cpus	=
+		priv->dai[i].platforms	= &dlc[0];
+		priv->dai[i].codecs	= &dlc[1];
 
 		priv->dai[i].num_cpus = 1;
 		priv->dai[i].num_codecs = 1;
+		priv->dai[i].num_platforms = 1;
 
 		priv->dai[i].name = dai_name;
 		priv->dai[i].stream_name = "HiFi-AUDMIX-FE";
@@ -264,8 +270,8 @@ static int imx_audmix_probe(struct platform_device *pdev)
 		be_cp = devm_kasprintf(&pdev->dev, GFP_KERNEL,
 				       "AUDMIX-Capture-%d", i);
 
-		priv->dai[num_dai + i].cpus = &dlc[2];
-		priv->dai[num_dai + i].codecs = &dlc[3];
+		priv->dai[num_dai + i].cpus	= &dlc[2];
+		priv->dai[num_dai + i].codecs	= &dlc[3];
 
 		priv->dai[num_dai + i].num_cpus = 1;
 		priv->dai[num_dai + i].num_codecs = 1;
