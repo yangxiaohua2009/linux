@@ -51,21 +51,10 @@ static int cs35l56_mbox_send(struct cs35l56_private *cs35l56, unsigned int comma
 	return 0;
 }
 
-static int cs35l56_wait_dsp_ready(struct cs35l56_private *cs35l56)
+static void cs35l56_wait_dsp_ready(struct cs35l56_private *cs35l56)
 {
-	int ret;
-
-	if (!cs35l56->fw_patched) {
-		/* block until firmware download completes */
-		ret = wait_for_completion_timeout(&cs35l56->dsp_ready_completion,
-						  msecs_to_jiffies(25000));
-		if (!ret) {
-			dev_err(cs35l56->dev, "dsp_ready_completion timeout\n");
-			return -ETIMEDOUT;
-		}
-	}
-
-	return 0;
+	/* Wait for patching to complete */
+	flush_work(&cs35l56->dsp_work);
 }
 
 static int cs35l56_dspwait_get_volsw(struct snd_kcontrol *kcontrol,
@@ -73,11 +62,8 @@ static int cs35l56_dspwait_get_volsw(struct snd_kcontrol *kcontrol,
 {
 	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
 	struct cs35l56_private *cs35l56 = snd_soc_component_get_drvdata(component);
-	int ret = cs35l56_wait_dsp_ready(cs35l56);
 
-	if (ret)
-		return ret;
-
+	cs35l56_wait_dsp_ready(cs35l56);
 	return snd_soc_get_volsw(kcontrol, ucontrol);
 }
 
@@ -86,11 +72,8 @@ static int cs35l56_dspwait_put_volsw(struct snd_kcontrol *kcontrol,
 {
 	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
 	struct cs35l56_private *cs35l56 = snd_soc_component_get_drvdata(component);
-	int ret = cs35l56_wait_dsp_ready(cs35l56);
 
-	if (ret)
-		return ret;
-
+	cs35l56_wait_dsp_ready(cs35l56);
 	return snd_soc_put_volsw(kcontrol, ucontrol);
 }
 
@@ -183,24 +166,6 @@ static SOC_VALUE_ENUM_SINGLE_DECL(cs35l56_sdw1tx4_enum,
 static const struct snd_kcontrol_new sdw1_tx4_mux =
 	SOC_DAPM_ENUM("SDW1TX4 SRC", cs35l56_sdw1tx4_enum);
 
-static SOC_VALUE_ENUM_SINGLE_DECL(cs35l56_sdw1tx5_enum,
-				CS35L56_SWIRE_DP3_CH5_INPUT,
-				0, CS35L56_SWIRETXn_SRC_MASK,
-				cs35l56_tx_input_texts,
-				cs35l56_tx_input_values);
-
-static const struct snd_kcontrol_new sdw1_tx5_mux =
-	SOC_DAPM_ENUM("SDW1TX5 SRC", cs35l56_sdw1tx5_enum);
-
-static SOC_VALUE_ENUM_SINGLE_DECL(cs35l56_sdw1tx6_enum,
-				CS35L56_SWIRE_DP3_CH6_INPUT,
-				0, CS35L56_SWIRETXn_SRC_MASK,
-				cs35l56_tx_input_texts,
-				cs35l56_tx_input_values);
-
-static const struct snd_kcontrol_new sdw1_tx6_mux =
-	SOC_DAPM_ENUM("SDW1TX6 SRC", cs35l56_sdw1tx6_enum);
-
 static int cs35l56_play_event(struct snd_soc_dapm_widget *w,
 			      struct snd_kcontrol *kcontrol, int event)
 {
@@ -268,8 +233,6 @@ static const struct snd_soc_dapm_widget cs35l56_dapm_widgets[] = {
 	SND_SOC_DAPM_MUX("SDW1 TX2 Source", SND_SOC_NOPM, 0, 0, &sdw1_tx2_mux),
 	SND_SOC_DAPM_MUX("SDW1 TX3 Source", SND_SOC_NOPM, 0, 0, &sdw1_tx3_mux),
 	SND_SOC_DAPM_MUX("SDW1 TX4 Source", SND_SOC_NOPM, 0, 0, &sdw1_tx4_mux),
-	SND_SOC_DAPM_MUX("SDW1 TX5 Source", SND_SOC_NOPM, 0, 0, &sdw1_tx5_mux),
-	SND_SOC_DAPM_MUX("SDW1 TX6 Source", SND_SOC_NOPM, 0, 0, &sdw1_tx6_mux),
 
 	SND_SOC_DAPM_SIGGEN("VMON ADC"),
 	SND_SOC_DAPM_SIGGEN("IMON ADC"),
@@ -335,14 +298,10 @@ static const struct snd_soc_dapm_route cs35l56_audio_map[] = {
 	CS35L56_SRC_ROUTE("SDW1 TX2")
 	CS35L56_SRC_ROUTE("SDW1 TX3")
 	CS35L56_SRC_ROUTE("SDW1 TX4")
-	CS35L56_SRC_ROUTE("SDW1 TX5")
-	CS35L56_SRC_ROUTE("SDW1 TX6")
 	{ "SDW1 Capture", NULL, "SDW1 TX1 Source" },
 	{ "SDW1 Capture", NULL, "SDW1 TX2 Source" },
 	{ "SDW1 Capture", NULL, "SDW1 TX3 Source" },
 	{ "SDW1 Capture", NULL, "SDW1 TX4 Source" },
-	{ "SDW1 Capture", NULL, "SDW1 TX5 Source" },
-	{ "SDW1 Capture", NULL, "SDW1 TX6 Source" },
 };
 
 static int cs35l56_dsp_event(struct snd_soc_dapm_widget *w,
@@ -423,18 +382,19 @@ err_unlock:
 }
 EXPORT_SYMBOL_NS_GPL(cs35l56_irq, SND_SOC_CS35L56_CORE);
 
-int cs35l56_irq_request(struct cs35l56_private *cs35l56)
+int cs35l56_irq_request(struct cs35l56_private *cs35l56, int irq)
 {
 	int ret;
 
-	if (!cs35l56->irq)
+	if (!irq)
 		return 0;
 
-	ret = devm_request_threaded_irq(cs35l56->dev, cs35l56->irq, NULL,
-					cs35l56_irq,
+	ret = devm_request_threaded_irq(cs35l56->dev, irq, NULL, cs35l56_irq,
 					IRQF_ONESHOT | IRQF_SHARED | IRQF_TRIGGER_LOW,
 					"cs35l56", cs35l56);
-	if (ret < 0)
+	if (!ret)
+		cs35l56->irq = irq;
+	else
 		dev_err(cs35l56->dev, "Failed to get IRQ: %d\n", ret);
 
 	return ret;
@@ -795,7 +755,7 @@ static struct snd_soc_dai_driver cs35l56_dai[] = {
 		.capture = {
 			.stream_name = "SDW1 Capture",
 			.channels_min = 1,
-			.channels_max = 6,
+			.channels_max = 4,
 			.rates = CS35L56_RATES,
 			.formats = CS35L56_TX_FORMATS,
 		},
@@ -834,6 +794,12 @@ static int cs35l56_wait_for_firmware_boot(struct cs35l56_private *cs35l56)
 	return 0;
 }
 
+static inline void cs35l56_wait_min_reset_pulse(void)
+{
+	/* Satisfy minimum reset pulse width spec */
+	usleep_range(CS35L56_RESET_PULSE_MIN_US, 2 * CS35L56_RESET_PULSE_MIN_US);
+}
+
 static const struct reg_sequence cs35l56_system_reset_seq[] = {
 	REG_SEQ0(CS35L56_DSP_VIRTUAL1_MBOX_1, CS35L56_MBOX_CMD_SYSTEM_RESET),
 };
@@ -868,21 +834,14 @@ static void cs35l56_dsp_work(struct work_struct *work)
 	unsigned int val;
 	int ret = 0;
 
-	if (!cs35l56->init_done &&
-	    !wait_for_completion_timeout(&cs35l56->init_completion,
-					 msecs_to_jiffies(5000))) {
-		dev_err(cs35l56->dev, "%s: init_completion timed out\n", __func__);
-		goto complete;
-	}
-
 	if (!cs35l56->init_done)
-		goto complete;
+		return;
 
 	cs35l56->dsp.part = devm_kasprintf(cs35l56->dev, GFP_KERNEL, "cs35l56%s-%02x",
 					   cs35l56->secured ? "s" : "", cs35l56->rev);
 
 	if (!cs35l56->dsp.part)
-		goto complete;
+		return;
 
 	pm_runtime_get_sync(cs35l56->dev);
 
@@ -900,10 +859,8 @@ static void cs35l56_dsp_work(struct work_struct *work)
 	}
 
 	ret = cs35l56_mbox_send(cs35l56, CS35L56_MBOX_CMD_SHUTDOWN);
-	if (ret) {
-		dev_dbg(cs35l56->dev, "%s: CS35L56_MBOX_CMD_SHUTDOWN ret %d\n", __func__, ret);
+	if (ret)
 		goto err;
-	}
 
 	if (cs35l56->rev < CS35L56_REVID_B0)
 		reg = CS35L56_DSP1_PM_CUR_STATE_A1;
@@ -961,9 +918,6 @@ err:
 		sdw_write_no_pm(cs35l56->sdw_peripheral, CS35L56_SDW_GEN_INT_MASK_1,
 				CS35L56_SDW_INT_MASK_CODEC_IRQ);
 	}
-
-complete:
-	complete_all(&cs35l56->dsp_ready_completion);
 }
 
 static int cs35l56_component_probe(struct snd_soc_component *component)
@@ -972,6 +926,12 @@ static int cs35l56_component_probe(struct snd_soc_component *component)
 	struct dentry *debugfs_root = component->debugfs_root;
 
 	BUILD_BUG_ON(ARRAY_SIZE(cs35l56_tx_input_texts) != ARRAY_SIZE(cs35l56_tx_input_values));
+
+	if (!wait_for_completion_timeout(&cs35l56->init_completion,
+					 msecs_to_jiffies(5000))) {
+		dev_err(cs35l56->dev, "%s: init_completion timed out\n", __func__);
+		return -ENODEV;
+	}
 
 	cs35l56->component = component;
 	wm_adsp2_component_probe(&cs35l56->dsp, component);
@@ -996,7 +956,6 @@ static int cs35l56_set_bias_level(struct snd_soc_component *component,
 				  enum snd_soc_bias_level level)
 {
 	struct cs35l56_private *cs35l56 = snd_soc_component_get_drvdata(component);
-	int ret = 0;
 
 	switch (level) {
 	case SND_SOC_BIAS_STANDBY:
@@ -1005,14 +964,14 @@ static int cs35l56_set_bias_level(struct snd_soc_component *component,
 		 * BIAS_OFF to BIAS_STANDBY
 		 */
 		if (snd_soc_component_get_bias_level(component) == SND_SOC_BIAS_OFF)
-			ret = cs35l56_wait_dsp_ready(cs35l56);
+			cs35l56_wait_dsp_ready(cs35l56);
 
 		break;
 	default:
 		break;
 	}
 
-	return ret;
+	return 0;
 }
 
 static const struct snd_soc_component_driver soc_component_dev_cs35l56 = {
@@ -1072,9 +1031,7 @@ int cs35l56_runtime_suspend(struct device *dev)
 	 * Enable auto-hibernate. If it is woken by some other wake source
 	 * it will automatically return to hibernate.
 	 */
-	ret = cs35l56_mbox_send(cs35l56, CS35L56_MBOX_CMD_ALLOW_AUTO_HIBERNATE);
-	if (ret)
-		dev_warn(cs35l56->dev, "ALLOW_HIBERNATE failed: %d\n", ret);
+	cs35l56_mbox_send(cs35l56, CS35L56_MBOX_CMD_ALLOW_AUTO_HIBERNATE);
 
 	/*
 	 * Must enter cache-only first so there can't be any more register
@@ -1235,7 +1192,7 @@ int cs35l56_system_suspend_late(struct device *dev)
 	 */
 	if (cs35l56->reset_gpio) {
 		gpiod_set_value_cansleep(cs35l56->reset_gpio, 0);
-		usleep_range(CS35L56_RESET_PULSE_MIN_US, CS35L56_RESET_PULSE_MIN_US + 400);
+		cs35l56_wait_min_reset_pulse();
 	}
 
 	regulator_bulk_disable(ARRAY_SIZE(cs35l56->supplies), cs35l56->supplies);
@@ -1288,7 +1245,7 @@ int cs35l56_system_resume_early(struct device *dev)
 	/* Ensure a spec-compliant RESET pulse. */
 	if (cs35l56->reset_gpio) {
 		gpiod_set_value_cansleep(cs35l56->reset_gpio, 0);
-		usleep_range(CS35L56_RESET_PULSE_MIN_US, CS35L56_RESET_PULSE_MIN_US + 400);
+		cs35l56_wait_min_reset_pulse();
 	}
 
 	/* Enable supplies before releasing RESET. */
@@ -1330,7 +1287,6 @@ int cs35l56_system_resume(struct device *dev)
 		return ret;
 
 	cs35l56->fw_patched = false;
-	init_completion(&cs35l56->dsp_ready_completion);
 	queue_work(cs35l56->dsp_wq, &cs35l56->dsp_work);
 
 	/*
@@ -1352,7 +1308,6 @@ static int cs35l56_dsp_init(struct cs35l56_private *cs35l56)
 		return -ENOMEM;
 
 	INIT_WORK(&cs35l56->dsp_work, cs35l56_dsp_work);
-	init_completion(&cs35l56->dsp_ready_completion);
 
 	dsp = &cs35l56->dsp;
 	dsp->part = "cs35l56";
@@ -1439,9 +1394,7 @@ int cs35l56_common_probe(struct cs35l56_private *cs35l56)
 		return dev_err_probe(cs35l56->dev, ret, "Failed to enable supplies\n");
 
 	if (cs35l56->reset_gpio) {
-		/* satisfy minimum reset pulse width spec */
-		usleep_range(CS35L56_RESET_PULSE_MIN_US,
-			     CS35L56_RESET_PULSE_MIN_US + 400);
+		cs35l56_wait_min_reset_pulse();
 		gpiod_set_value_cansleep(cs35l56->reset_gpio, 1);
 	}
 
@@ -1554,9 +1507,7 @@ int cs35l56_init(struct cs35l56_private *cs35l56)
 	dev_info(cs35l56->dev, "Cirrus Logic CS35L56%s Rev %02X OTP%d\n",
 		 cs35l56->secured ? "s" : "", cs35l56->rev, otpid);
 
-	cs35l56_patch(cs35l56->dev, cs35l56->regmap, cs35l56->rev);
-
-	/* Wake source interrupts default to unmasked, so mask them */
+	/* Wake source and *_BLOCKED interrupts default to unmasked, so mask them */
 	regmap_write(cs35l56->regmap, CS35L56_IRQ1_MASK_20, 0xffffffff);
 	regmap_update_bits(cs35l56->regmap, CS35L56_IRQ1_MASK_1,
 			   CS35L56_AMP_SHORT_ERR_EINT1_MASK,
@@ -1609,7 +1560,7 @@ post_soft_reset:
 }
 EXPORT_SYMBOL_NS_GPL(cs35l56_init, SND_SOC_CS35L56_CORE);
 
-int cs35l56_remove(struct cs35l56_private *cs35l56)
+void cs35l56_remove(struct cs35l56_private *cs35l56)
 {
 	cs35l56->init_done = false;
 
@@ -1632,8 +1583,6 @@ int cs35l56_remove(struct cs35l56_private *cs35l56)
 
 	gpiod_set_value_cansleep(cs35l56->reset_gpio, 0);
 	regulator_bulk_disable(ARRAY_SIZE(cs35l56->supplies), cs35l56->supplies);
-
-	return 0;
 }
 EXPORT_SYMBOL_NS_GPL(cs35l56_remove, SND_SOC_CS35L56_CORE);
 

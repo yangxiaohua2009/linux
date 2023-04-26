@@ -32,11 +32,17 @@ static int imx_spdif_audio_probe(struct platform_device *pdev)
 		goto end;
 	}
 
-	data->dai.cpus		= &comp[0];
+	/*
+	 * CPU == Platform
+	 * platform is using soc-generic-dmaengine-pcm
+	 */
+	data->dai.cpus		=
+	data->dai.platforms	= &comp[0];
 	data->dai.codecs	= &comp[1];
 
 	data->dai.num_cpus	= 1;
 	data->dai.num_codecs	= 1;
+	data->dai.num_platforms	= 1;
 
 	data->dai.name = "S/PDIF PCM";
 	data->dai.stream_name = "S/PDIF PCM";
