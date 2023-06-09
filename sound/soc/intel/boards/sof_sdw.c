@@ -1301,7 +1301,7 @@ static int set_codec_init_func(struct snd_soc_card *card,
 static int get_slave_info(const struct snd_soc_acpi_link_adr *adr_link,
 			  struct device *dev, int *cpu_dai_id, int *cpu_dai_num,
 			  int *codec_num, unsigned int *group_id,
-			  bool *group_generated, int adr_index)
+			  int adr_index)
 {
 	const struct snd_soc_acpi_adr_device *adr_d;
 	const struct snd_soc_acpi_link_adr *adr_next;
@@ -1361,11 +1361,6 @@ static int get_slave_info(const struct snd_soc_acpi_link_adr *adr_link,
 		}
 	}
 
-	/*
-	 * indicate CPU DAIs for this group have been generated
-	 * to avoid generating CPU DAIs for this group again.
-	 */
-	group_generated[*group_id] = true;
 	*cpu_dai_num = index;
 
 	return 0;
@@ -1389,8 +1384,7 @@ static int create_sdw_dailink(struct snd_soc_card *card, int *link_index,
 			      int sdw_be_num, int sdw_cpu_dai_num,
 			      struct snd_soc_dai_link_component *cpus,
 			      const struct snd_soc_acpi_link_adr *adr_link,
-			      int *cpu_id, bool *group_generated,
-			      struct snd_soc_codec_conf *codec_conf,
+			      int *cpu_id, struct snd_soc_codec_conf *codec_conf,
 			      int codec_count, int *be_id,
 			      int *codec_conf_index,
 			      bool *ignore_pch_dmic,
@@ -1414,7 +1408,7 @@ static int create_sdw_dailink(struct snd_soc_card *card, int *link_index,
 	int k;
 
 	ret = get_slave_info(adr_link, dev, cpu_dai_id, &cpu_dai_num, &codec_num,
-			     &group_id, group_generated, adr_index);
+			     &group_id, adr_index);
 	if (ret)
 		return ret;
 
@@ -1569,13 +1563,14 @@ static int sof_card_dai_links_create(struct snd_soc_card *card)
 	struct snd_soc_dai_link_component *ssp_components;
 	struct snd_soc_acpi_mach_params *mach_params = &mach->mach_params;
 	const struct snd_soc_acpi_link_adr *adr_link = mach_params->links;
+	bool aggregation = !(sof_sdw_quirk & SOF_SDW_NO_AGGREGATION);
 	struct snd_soc_dai_link_component *cpus;
 	struct snd_soc_codec_conf *codec_conf;
 	bool append_dai_type = false;
 	bool ignore_pch_dmic = false;
 	int codec_conf_num = 0;
 	int codec_conf_index = 0;
-	bool group_generated[SDW_MAX_GROUPS];
+	bool group_generated[SDW_MAX_GROUPS] = { };
 	int ssp_codec_index, ssp_mask;
 	struct snd_soc_dai_link *dai_links;
 	int num_links, link_index = 0;
@@ -1651,14 +1646,6 @@ static int sof_card_dai_links_create(struct snd_soc_card *card)
 	if (!adr_link)
 		return -EINVAL;
 
-	/*
-	 * SoundWire Slaves aggregated in the same group may be
-	 * located on different hardware links. Clear array to indicate
-	 * CPU DAIs for this group have not been generated.
-	 */
-	for (i = 0; i < SDW_MAX_GROUPS; i++)
-		group_generated[i] = false;
-
 	for (i = 0; i < SDW_MAX_LINKS; i++)
 		sdw_pin_index[i] = SDW_INTEL_BIDIR_PDI_BASE;
 
@@ -1716,7 +1703,7 @@ out:
 			for (j = 0; j < codec_info_list[codec_index].dai_num ; j++) {
 				ret = create_sdw_dailink(card, &link_index, dai_links,
 							 sdw_be_num, sdw_cpu_dai_num, cpus,
-							 adr_link, &cpu_id, group_generated,
+							 adr_link, &cpu_id,
 							 codec_conf, codec_conf_num,
 							 &be_id, &codec_conf_index,
 							 &ignore_pch_dmic, append_dai_type, i, j);
@@ -1725,6 +1712,9 @@ out:
 					return ret;
 				}
 			}
+
+			if (aggregation && endpoint->aggregated)
+				group_generated[endpoint->group_id] = true;
 		}
 	}
 
