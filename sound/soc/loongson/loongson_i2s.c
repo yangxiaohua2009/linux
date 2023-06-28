@@ -89,7 +89,7 @@ static int loongson_i2s_hw_params(struct snd_pcm_substream *substream,
 		bclk_ratio = DIV_ROUND_CLOSEST(sysclk,
 					       (bits * chans * fs * 2)) - 1;
 		mclk_ratio = clk_rate / sysclk;
-		mclk_ratio_frac = DIV_ROUND_CLOSEST(((u64)clk_rate << 16),
+		mclk_ratio_frac = DIV_ROUND_CLOSEST_ULL(((u64)clk_rate << 16),
 						    sysclk) - (mclk_ratio << 16);
 
 		regmap_read(i2s->regmap, LS_I2S_CFG, &val);
@@ -265,5 +265,5 @@ static int i2s_resume(struct device *dev)
 }
 
 const struct dev_pm_ops loongson_i2s_pm = {
-	SET_SYSTEM_SLEEP_PM_OPS(i2s_suspend, i2s_resume)
+	SYSTEM_SLEEP_PM_OPS(i2s_suspend, i2s_resume)
 };
