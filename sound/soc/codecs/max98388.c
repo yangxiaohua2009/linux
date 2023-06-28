@@ -873,7 +873,7 @@ static int max98388_resume(struct device *dev)
 }
 
 static const struct dev_pm_ops max98388_pm = {
-	SET_SYSTEM_SLEEP_PM_OPS(max98388_suspend, max98388_resume)
+	SYSTEM_SLEEP_PM_OPS(max98388_suspend, max98388_resume)
 };
 
 static const struct regmap_config max98388_regmap = {
@@ -887,7 +887,7 @@ static const struct regmap_config max98388_regmap = {
 	.cache_type = REGCACHE_RBTREE,
 };
 
-const struct snd_soc_component_driver soc_codec_dev_max98388 = {
+static const struct snd_soc_component_driver soc_codec_dev_max98388 = {
 	.probe			= max98388_probe,
 	.controls		= max98388_snd_controls,
 	.num_controls		= ARRAY_SIZE(max98388_snd_controls),
@@ -960,7 +960,7 @@ static int max98388_i2c_probe(struct i2c_client *i2c)
 	ret = regmap_read(max98388->regmap,
 			  MAX98388_R22FF_REV_ID, &reg);
 	if (ret < 0)
-		return dev_err_probe(&i2c->dev, PTR_ERR(max98388->regmap),
+		return dev_err_probe(&i2c->dev, ret,
 				     "Failed to read the revision ID\n");
 
 	dev_info(&i2c->dev, "MAX98388 revisionID: 0x%02X\n", reg);
@@ -998,9 +998,9 @@ MODULE_DEVICE_TABLE(acpi, max98388_acpi_match);
 static struct i2c_driver max98388_i2c_driver = {
 	.driver = {
 		.name = "max98388",
-		.of_match_table = of_match_ptr(max98388_of_match),
-		.acpi_match_table = ACPI_PTR(max98388_acpi_match),
-		.pm = &max98388_pm,
+		.of_match_table = max98388_of_match,
+		.acpi_match_table = max98388_acpi_match,
+		.pm = pm_sleep_ptr(&max98388_pm),
 	},
 	.probe = max98388_i2c_probe,
 	.id_table = max98388_i2c_id,

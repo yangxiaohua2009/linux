@@ -11,7 +11,7 @@
 #include <sound/core.h>
 #include <sound/rawmidi.h>
 #include <sound/ump.h>
-#include "ump_convert.h"
+#include <sound/ump_convert.h>
 
 #define ump_err(ump, fmt, args...)	dev_err(&(ump)->core.dev, fmt, ##args)
 #define ump_warn(ump, fmt, args...)	dev_warn(&(ump)->core.dev, fmt, ##args)
@@ -87,7 +87,7 @@ static void snd_ump_endpoint_free(struct snd_rawmidi *rmidi)
 		ump->private_free(ump);
 
 #if IS_ENABLED(CONFIG_SND_UMP_LEGACY_RAWMIDI)
-	snd_ump_convert_free(ump);
+	kfree(ump->out_cvts);
 #endif
 }
 
@@ -263,12 +263,16 @@ static unsigned char ump_packet_words[0x10] = {
 	1, 1, 1, 2, 2, 4, 1, 1, 2, 2, 2, 3, 3, 4, 4, 4
 };
 
-/* parse the UMP packet data;
- * the data is copied onto ump->input_buf[].
+/**
+ * snd_ump_receive_ump_val - parse the UMP packet data
+ * @ump: UMP endpoint
+ * @val: UMP packet data
+ *
+ * The data is copied onto ump->input_buf[].
  * When a full packet is completed, returns the number of words (from 1 to 4).
  * OTOH, if the packet is incomplete, returns 0.
  */
-static int snd_ump_receive_ump_val(struct snd_ump_endpoint *ump, u32 val)
+int snd_ump_receive_ump_val(struct snd_ump_endpoint *ump, u32 val)
 {
 	int words;
 
@@ -284,6 +288,7 @@ static int snd_ump_receive_ump_val(struct snd_ump_endpoint *ump, u32 val)
 	}
 	return 0;
 }
+EXPORT_SYMBOL_GPL(snd_ump_receive_ump_val);
 
 /**
  * snd_ump_receive - transfer UMP packets from the device
@@ -671,18 +676,35 @@ static void seq_notify_protocol(struct snd_ump_endpoint *ump)
 #endif /* CONFIG_SND_SEQUENCER */
 }
 
+/**
+ * snd_ump_switch_protocol - switch MIDI protocol
+ * @ump: UMP endpoint
+ * @protocol: protocol to switch to
+ *
+ * Returns 1 if the protocol is actually switched, 0 if unchanged
+ */
+int snd_ump_switch_protocol(struct snd_ump_endpoint *ump, unsigned int protocol)
+{
+	protocol &= ump->info.protocol_caps;
+	if (protocol == ump->info.protocol)
+		return 0;
+
+	ump->info.protocol = protocol;
+	ump_dbg(ump, "New protocol = %x (caps = %x)\n",
+		protocol, ump->info.protocol_caps);
+	seq_notify_protocol(ump);
+	return 1;
+}
+EXPORT_SYMBOL_GPL(snd_ump_switch_protocol);
+
 /* handle EP stream config message; update the UMP protocol */
 static int ump_handle_stream_cfg_msg(struct snd_ump_endpoint *ump,
 				     const union snd_ump_stream_msg *buf)
 {
-	unsigned int old_protocol = ump->info.protocol;
-
-	ump->info.protocol =
+	unsigned int protocol =
 		(buf->stream_cfg.protocol << 8) | buf->stream_cfg.jrts;
-	ump_dbg(ump, "Current protocol = %x (caps = %x)\n",
-		ump->info.protocol, ump->info.protocol_caps);
-	if (ump->parsed && ump->info.protocol != old_protocol)
-		seq_notify_protocol(ump);
+
+	snd_ump_switch_protocol(ump, protocol);
 	return 1; /* finished */
 }
 
@@ -837,6 +859,10 @@ static void ump_handle_stream_msg(struct snd_ump_endpoint *ump,
 	unsigned int status;
 	int ret;
 
+	/* UMP stream message suppressed (for gadget UMP)? */
+	if (ump->no_process_stream)
+		return;
+
 	BUILD_BUG_ON(sizeof(*msg) != 16);
 	ump_dbg(ump, "Stream msg: %08x %08x %08x %08x\n",
 		buf[0], buf[1], buf[2], buf[3]);
@@ -976,7 +1002,7 @@ static int snd_ump_legacy_open(struct snd_rawmidi_substream *substream)
 				goto unlock;
 		}
 		ump->legacy_out_opens++;
-		snd_ump_reset_convert_to_ump(ump, group);
+		snd_ump_convert_reset(&ump->out_cvts[group]);
 	}
 	spin_lock_irq(&ump->legacy_locks[dir]);
 	ump->legacy_substreams[dir][group] = substream;
@@ -1065,7 +1091,7 @@ static int process_legacy_output(struct snd_ump_endpoint *ump,
 		ctx = &ump->out_cvts[group];
 		while (!ctx->ump_bytes &&
 		       snd_rawmidi_transmit(substream, &c, 1) > 0)
-			snd_ump_convert_to_ump(ump, group, c);
+			snd_ump_convert_to_ump(ctx, group, ump->info.protocol, c);
 		if (ctx->ump_bytes && ctx->ump_bytes <= count) {
 			size = ctx->ump_bytes;
 			memcpy(buffer, ctx->ump, size);
@@ -1087,7 +1113,7 @@ static void process_legacy_input(struct snd_ump_endpoint *ump, const u32 *src,
 	const int dir = SNDRV_RAWMIDI_STREAM_INPUT;
 	int size;
 
-	size = snd_ump_convert_from_ump(ump, src, buf, &group);
+	size = snd_ump_convert_from_ump(src, buf, &group);
 	if (size <= 0)
 		return;
 	spin_lock_irqsave(&ump->legacy_locks[dir], flags);
@@ -1104,9 +1130,9 @@ int snd_ump_attach_legacy_rawmidi(struct snd_ump_endpoint *ump,
 	bool input, output;
 	int err;
 
-	err = snd_ump_convert_init(ump);
-	if (err < 0)
-		return err;
+	ump->out_cvts = kcalloc(16, sizeof(*ump->out_cvts), GFP_KERNEL);
+	if (!ump->out_cvts)
+		return -ENOMEM;
 
 	input = ump->core.info_flags & SNDRV_RAWMIDI_INFO_INPUT;
 	output = ump->core.info_flags & SNDRV_RAWMIDI_INFO_OUTPUT;
@@ -1114,7 +1140,7 @@ int snd_ump_attach_legacy_rawmidi(struct snd_ump_endpoint *ump,
 			      output ? 16 : 0, input ? 16 : 0,
 			      &rmidi);
 	if (err < 0) {
-		snd_ump_convert_free(ump);
+		kfree(ump->out_cvts);
 		return err;
 	}
 
