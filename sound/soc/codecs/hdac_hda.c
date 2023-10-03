@@ -438,7 +438,8 @@ static int hdac_hda_codec_probe(struct snd_soc_component *component)
 
 		dev_info(&hdev->dev, "Applying patch firmware '%s'\n",
 			 loadable_patch[hda_pvt->dev_index]);
-		ret = request_firmware(&fw, loadable_patch[hda_pvt->dev_index], &hdev->dev);
+		ret = request_firmware(&fw, loadable_patch[hda_pvt->dev_index],
+				       &hdev->dev);
 		if (ret < 0)
 			goto error_no_pm;
 		if (fw) {
