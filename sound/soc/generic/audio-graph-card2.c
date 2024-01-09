@@ -8,7 +8,6 @@
 // based on ${LINUX}/sound/soc/generic/audio-graph-card.c
 #include <linux/clk.h>
 #include <linux/device.h>
-#include <linux/gpio.h>
 #include <linux/gpio/consumer.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -557,7 +556,7 @@ static int graph_parse_node_multi_nm(struct snd_soc_dai_link *dai_link,
 		struct device_node *mcodec_port;
 		int codec_idx;
 
-		if (*nm_idx > nm_max)
+		if (*nm_idx >= nm_max)
 			break;
 
 		mcpu_ep_n = of_get_next_child(mcpu_port, mcpu_ep_n);
@@ -760,6 +759,7 @@ static void graph_link_init(struct simple_util_priv *priv,
 	struct device_node *ep;
 	struct device_node *ports;
 	unsigned int daifmt = 0, daiclk = 0;
+	bool playback_only = 0, capture_only = 0;
 	unsigned int bit_frame = 0;
 
 	if (graph_lnk_is_multi(port)) {
@@ -797,6 +797,11 @@ static void graph_link_init(struct simple_util_priv *priv,
 	daiclk = snd_soc_daifmt_clock_provider_from_bitmap(bit_frame);
 	if (is_cpu_node)
 		daiclk = snd_soc_daifmt_clock_provider_flipped(daiclk);
+
+	graph_util_parse_link_direction(port, &playback_only, &capture_only);
+
+	dai_link->playback_only = playback_only;
+	dai_link->capture_only = capture_only;
 
 	dai_link->dai_fmt	= daifmt | daiclk;
 	dai_link->init		= simple_util_dai_init;
