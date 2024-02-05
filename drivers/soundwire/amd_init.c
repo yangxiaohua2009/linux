@@ -4,7 +4,7 @@
  *
  * Initializes and creates SDW devices based on ACPI and Hardware values
  *
- * Copyright 2023 Advanced Micro Devices, Inc.
+ * Copyright 2024 Advanced Micro Devices, Inc.
  */
 
 #include <linux/acpi.h>

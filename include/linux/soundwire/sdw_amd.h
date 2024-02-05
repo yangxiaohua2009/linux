@@ -1,6 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0+ */
+/* SPDX-License-Identifier: (GPL-2.0 OR BSD-3-Clause) */
 /*
- * Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
+ * Copyright (C) 2023-24 Advanced Micro Devices, Inc. All rights reserved.
  */
 
 #ifndef __SDW_AMD_H
@@ -112,8 +112,8 @@ struct sdw_amd_acpi_info {
 };
 
 /**
- * struct sdw_amd_ctx - context allocated by the controller
- * driver probe
+ * struct sdw_amd_ctx - context allocated by the controller driver probe
+ *
  * @count: link count
  * @num_slaves: total number of devices exposed across all enabled links
  * @link_mask: bit-wise mask listing SoundWire links reported by the
