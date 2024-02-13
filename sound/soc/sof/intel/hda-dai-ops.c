@@ -231,7 +231,6 @@ static unsigned int generic_calc_stream_format(struct snd_sof_dev *sdev,
 
 	bits = snd_hdac_stream_format_bits(params_format(params), SNDRV_PCM_SUBFORMAT_STD,
 					   params_physical_width(params));
-
 	format_val = snd_hdac_stream_format(params_channels(params), bits, params_rate(params));
 
 	dev_dbg(sdev->dev, "format_val=%#x, rate=%d, ch=%d, format=%d\n", format_val,
