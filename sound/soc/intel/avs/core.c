@@ -477,6 +477,9 @@ static int avs_pci_probe(struct pci_dev *pci, const struct pci_device_id *id)
 	return 0;
 
 err_i915_init:
+	pci_free_irq(pci, 0, adev);
+	pci_free_irq(pci, 0, bus);
+	pci_free_irq_vectors(pci);
 	pci_clear_master(pci);
 	pci_set_drvdata(pci, NULL);
 err_acquire_irq:
@@ -773,6 +776,7 @@ static struct pci_driver avs_pci_driver = {
 	.probe = avs_pci_probe,
 	.remove = avs_pci_remove,
 	.shutdown = avs_pci_shutdown,
+	.dev_groups = avs_attr_groups,
 	.driver = {
 		.pm = &avs_dev_pm,
 	},
