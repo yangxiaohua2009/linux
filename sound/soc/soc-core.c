@@ -1219,6 +1219,9 @@ static int snd_soc_add_pcm_runtime(struct snd_soc_card *card,
 			if (!snd_soc_is_matching_component(platform, component))
 				continue;
 
+			if (snd_soc_component_is_dummy(component) && component->num_dai)
+				continue;
+
 			snd_soc_rtd_add_component(rtd, component);
 		}
 	}
@@ -2784,10 +2787,12 @@ int snd_soc_component_initialize(struct snd_soc_component *component,
 	INIT_LIST_HEAD(&component->list);
 	mutex_init(&component->io_mutex);
 
-	component->name = fmt_single_name(dev, &component->id);
 	if (!component->name) {
-		dev_err(dev, "ASoC: Failed to allocate name\n");
-		return -ENOMEM;
+		component->name = fmt_single_name(dev, &component->id);
+		if (!component->name) {
+			dev_err(dev, "ASoC: Failed to allocate name\n");
+			return -ENOMEM;
+		}
 	}
 
 	component->dev		= dev;
