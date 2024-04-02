@@ -459,13 +459,15 @@ static void cs35l56_hda_request_firmware_files(struct cs35l56_hda *cs35l56,
 
 	if (preloaded_fw_ver) {
 		snprintf(base_name, sizeof(base_name),
-			 "cirrus/cs35l56-%02x%s-%06x-dsp1-misc",
+			 "cirrus/cs35l%02x-%02x%s-%06x-dsp1-misc",
+			 cs35l56->base.type,
 			 cs35l56->base.rev,
 			 cs35l56->base.secured ? "-s" : "",
 			 preloaded_fw_ver & 0xffffff);
 	} else {
 		snprintf(base_name, sizeof(base_name),
-			 "cirrus/cs35l56-%02x%s-dsp1-misc",
+			 "cirrus/cs35l%02x-%02x%s-dsp1-misc",
+			 cs35l56->base.type,
 			 cs35l56->base.rev,
 			 cs35l56->base.secured ? "-s" : "");
 	}
@@ -852,9 +854,10 @@ static int cs35l56_hda_system_resume(struct device *dev)
 	return 0;
 }
 
-static int cs35l56_hda_read_acpi(struct cs35l56_hda *cs35l56, int id)
+static int cs35l56_hda_read_acpi(struct cs35l56_hda *cs35l56, int hid, int id)
 {
 	u32 values[HDA_MAX_COMPONENTS];
+	char hid_string[8];
 	struct acpi_device *adev;
 	const char *property, *sub;
 	size_t nval;
@@ -865,7 +868,8 @@ static int cs35l56_hda_read_acpi(struct cs35l56_hda *cs35l56, int id)
 	 * the serial-multi-instantiate driver, so lookup the node by HID
 	 */
 	if (!ACPI_COMPANION(cs35l56->base.dev)) {
-		adev = acpi_dev_get_first_match_dev("CSC3556", NULL, -1);
+		snprintf(hid_string, sizeof(hid_string), "CSC%04X", hid);
+		adev = acpi_dev_get_first_match_dev(hid_string, NULL, -1);
 		if (!adev) {
 			dev_err(cs35l56->base.dev, "Failed to find an ACPI device for %s\n",
 				dev_name(cs35l56->base.dev));
@@ -953,14 +957,14 @@ err:
 	return ret;
 }
 
-int cs35l56_hda_common_probe(struct cs35l56_hda *cs35l56, int id)
+int cs35l56_hda_common_probe(struct cs35l56_hda *cs35l56, int hid, int id)
 {
 	int ret;
 
 	mutex_init(&cs35l56->base.irq_lock);
 	dev_set_drvdata(cs35l56->base.dev, cs35l56);
 
-	ret = cs35l56_hda_read_acpi(cs35l56, id);
+	ret = cs35l56_hda_read_acpi(cs35l56, hid, id);
 	if (ret)
 		goto err;
 
@@ -1020,8 +1024,8 @@ int cs35l56_hda_common_probe(struct cs35l56_hda *cs35l56, int id)
 		goto err;
 	}
 
-	dev_dbg(cs35l56->base.dev, "DSP system name: '%s', amp name: '%s'\n",
-		cs35l56->system_name, cs35l56->amp_name);
+	dev_info(cs35l56->base.dev, "DSP system name: '%s', amp name: '%s'\n",
+		 cs35l56->system_name, cs35l56->amp_name);
 
 	regmap_multi_reg_write(cs35l56->base.regmap, cs35l56_hda_dai_config,
 			       ARRAY_SIZE(cs35l56_hda_dai_config));
@@ -1041,13 +1045,13 @@ int cs35l56_hda_common_probe(struct cs35l56_hda *cs35l56, int id)
 	pm_runtime_mark_last_busy(cs35l56->base.dev);
 	pm_runtime_enable(cs35l56->base.dev);
 
+	cs35l56->base.init_done = true;
+
 	ret = component_add(cs35l56->base.dev, &cs35l56_hda_comp_ops);
 	if (ret) {
 		dev_err(cs35l56->base.dev, "Register component failed: %d\n", ret);
 		goto pm_err;
 	}
-
-	cs35l56->base.init_done = true;
 
 	return 0;
 
