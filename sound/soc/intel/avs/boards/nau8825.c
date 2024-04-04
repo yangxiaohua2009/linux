@@ -67,7 +67,7 @@ static const struct snd_soc_dapm_route card_base_routes[] = {
 	{ "Headset Mic", NULL, "Platform Clock" },
 };
 
-static struct snd_soc_jack_pin card_headset_pins[] = {
+static const struct snd_soc_jack_pin card_headset_pins[] = {
 	{
 		.pin = "Headphone Jack",
 		.mask = SND_JACK_HEADPHONE,
@@ -313,4 +313,5 @@ static struct platform_driver avs_nau8825_driver = {
 
 module_platform_driver(avs_nau8825_driver)
 
+MODULE_DESCRIPTION("Intel nau8825 machine driver");
 MODULE_LICENSE("GPL");

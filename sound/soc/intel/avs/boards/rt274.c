@@ -75,7 +75,7 @@ static const struct snd_soc_dapm_route card_base_routes[] = {
 	{"MIC", NULL, "Platform Clock"},
 };
 
-static struct snd_soc_jack_pin card_headset_pins[] = {
+static const struct snd_soc_jack_pin card_headset_pins[] = {
 	{
 		.pin = "Headphone Jack",
 		.mask = SND_JACK_HEADPHONE,
@@ -276,4 +276,5 @@ static struct platform_driver avs_rt274_driver = {
 
 module_platform_driver(avs_rt274_driver);
 
+MODULE_DESCRIPTION("Intel rt274 machine driver");
 MODULE_LICENSE("GPL");
