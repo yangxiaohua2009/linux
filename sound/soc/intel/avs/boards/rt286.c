@@ -38,7 +38,7 @@ static const struct snd_soc_dapm_route card_base_routes[] = {
 	{"Speaker", NULL, "SPOL"},
 };
 
-static struct snd_soc_jack_pin card_headset_pins[] = {
+static const struct snd_soc_jack_pin card_headset_pins[] = {
 	{
 		.pin = "Headphone Jack",
 		.mask = SND_JACK_HEADPHONE,
@@ -247,4 +247,5 @@ static struct platform_driver avs_rt286_driver = {
 
 module_platform_driver(avs_rt286_driver);
 
+MODULE_DESCRIPTION("Intel rt286 machine driver");
 MODULE_LICENSE("GPL");

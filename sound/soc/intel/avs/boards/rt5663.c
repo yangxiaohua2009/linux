@@ -43,7 +43,7 @@ static const struct snd_soc_dapm_route card_routes[] = {
 	{ "IN1N", NULL, "Headset Mic" },
 };
 
-static struct snd_soc_jack_pin card_headset_pins[] = {
+static const struct snd_soc_jack_pin card_headset_pins[] = {
 	{
 		.pin = "Headphone Jack",
 		.mask = SND_JACK_HEADPHONE,
@@ -265,4 +265,5 @@ static struct platform_driver avs_rt5663_driver = {
 
 module_platform_driver(avs_rt5663_driver);
 
+MODULE_DESCRIPTION("Intel rt5663 machine driver");
 MODULE_LICENSE("GPL");

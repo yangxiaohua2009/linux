@@ -85,7 +85,7 @@ static const struct snd_kcontrol_new card_controls[] = {
 	SOC_DAPM_PIN_SWITCH("Internal Mic"),
 };
 
-static struct snd_soc_jack_pin card_headset_pins[] = {
+static const struct snd_soc_jack_pin card_headset_pins[] = {
 	{
 		.pin = "Headphone",
 		.mask = SND_JACK_HEADPHONE,
@@ -326,4 +326,5 @@ static struct platform_driver avs_es8336_driver = {
 
 module_platform_driver(avs_es8336_driver);
 
+MODULE_DESCRIPTION("Intel es8336 machine driver");
 MODULE_LICENSE("GPL");

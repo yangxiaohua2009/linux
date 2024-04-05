@@ -953,7 +953,7 @@ static int rk3308_codec_platform_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static const struct of_device_id rk3308_codec_of_match[] = {
+static const struct of_device_id __maybe_unused rk3308_codec_of_match[] = {
 	{ .compatible = "rockchip,rk3308-codec", },
 	{},
 };
@@ -962,7 +962,7 @@ MODULE_DEVICE_TABLE(of, rk3308_codec_of_match);
 static struct platform_driver rk3308_codec_driver = {
 	.driver = {
 		.name = "rk3308-acodec",
-		.of_match_table = of_match_ptr(rk3308_codec_of_match),
+		.of_match_table = rk3308_codec_of_match,
 	},
 	.probe = rk3308_codec_platform_probe,
 };
