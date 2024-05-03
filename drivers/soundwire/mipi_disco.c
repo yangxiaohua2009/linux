@@ -262,7 +262,7 @@ static int sdw_slave_read_dpn(struct sdw_slave *slave,
 					sizeof(*dpn[i].ch_combinations),
 					GFP_KERNEL);
 			if (!dpn[i].ch_combinations) {
-				fwnode_handle_put(node);						
+				fwnode_handle_put(node);
 				return -ENOMEM;
 			}
 
